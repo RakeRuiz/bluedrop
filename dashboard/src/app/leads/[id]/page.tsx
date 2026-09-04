@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, BellRing, PauseCircle, PlayCircle, X } from 'lucide-react';
 import { getSupabaseServerClient, type Lead, type LeadEvent } from '@/lib/supabase-server';
-import { STAGE_LABELS, STAGE_BADGE_CLASSES } from '@/lib/lead-stage';
+import { ESTADO_LABELS, ESTADO_BADGE_CLASSES } from '@/lib/lead-status';
 import { needsTemplateMessage } from '@/lib/needs-template';
-import { markPaid, markLost, reopenAsInterested, addTag, removeTag, pauseLucy, resumeLucy } from './actions';
+import { markCerrada, markConError, reopenEnCurso, addTag, removeTag, pauseFranco, resumeFranco } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,10 +26,24 @@ function formatDate(value: string | null): string {
 
 const EVENT_LABELS: Record<LeadEvent['event_type'], string> = {
   message_in: 'Mensaje del cliente',
-  message_out: 'Respuesta de Lucy',
-  stage_changed: 'Cambio de etapa',
-  handoff_rene: 'Aviso al equipo',
+  message_out: 'Respuesta de Franco',
+  resource_sent: 'Recurso enviado',
+  handoff_asesor: 'Canalización a asesor',
   manual_update: 'Actualización',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  nombre: 'nombre',
+  apellido: 'apellido',
+  servicio_interes: 'servicio de interés',
+  ubicacion_merida: 'ubicación en Mérida',
+  zona_merida: 'zona',
+  nombre_negocio: 'negocio',
+  ubicacion_negocio: 'ubicación del negocio',
+  informacion_trampa: 'información de la trampa',
+  problematica_actual: 'problemática',
+  tipo_necesidad: 'tipo de necesidad',
+  preferencia_contacto: 'preferencia de contacto',
 };
 
 /** Convierte el payload técnico de cada evento en una línea legible para el historial. */
@@ -41,27 +55,31 @@ function describeEvent(event: LeadEvent): string | null {
     case 'message_out':
       return typeof payload.text === 'string' ? payload.text : null;
 
-    case 'stage_changed': {
-      const to = typeof payload.to === 'string' ? payload.to : null;
-      const label = to && to in STAGE_LABELS ? STAGE_LABELS[to as keyof typeof STAGE_LABELS] : to;
-      const topic = typeof payload.topic === 'string' ? payload.topic : null;
-      if (!label) return null;
-      return topic ? `Ahora: ${label} — interés en: ${topic}` : `Ahora: ${label}`;
-    }
+    case 'resource_sent':
+      return typeof payload.resourceKey === 'string' ? `Se envió: ${payload.resourceKey}` : null;
 
-    case 'handoff_rene':
-      return typeof payload.resumen === 'string' ? payload.resumen : null;
+    case 'handoff_asesor': {
+      const resumen = typeof payload.resumen === 'string' ? payload.resumen : null;
+      const dentroHorario = payload.withinBusinessHours === false ? ' (fuera de horario)' : '';
+      return resumen ? `${resumen}${dentroHorario}` : null;
+    }
 
     case 'manual_update': {
       if (payload.field === 'tags') {
         if (typeof payload.added === 'string') return `Se agregó la etiqueta "${payload.added}"`;
         if (typeof payload.removed === 'string') return `Se quitó la etiqueta "${payload.removed}"`;
       }
-      if (payload.field === 'name' && typeof payload.value === 'string') {
-        return `Se guardó el nombre: ${payload.value}`;
+      if (payload.field === 'franco_paused') {
+        return payload.value ? 'Franco fue pausado para este lead' : 'Franco fue reactivado para este lead';
       }
-      if (payload.field === 'lucy_paused') {
-        return payload.value ? 'Lucy fue pausada para este lead' : 'Lucy fue reactivada para este lead';
+      if (payload.field === 'estado_solicitud' && typeof payload.to === 'string') {
+        const label = payload.to in ESTADO_LABELS ? ESTADO_LABELS[payload.to as keyof typeof ESTADO_LABELS] : payload.to;
+        return `Ahora: ${label}`;
+      }
+      if (payload.fields && typeof payload.fields === 'object') {
+        const fields = payload.fields as Record<string, unknown>;
+        const parts = Object.entries(fields).map(([key, value]) => `${FIELD_LABELS[key] ?? key}: ${String(value)}`);
+        return parts.length > 0 ? `Se guardó — ${parts.join(', ')}` : null;
       }
       return null;
     }
@@ -75,11 +93,11 @@ export default async function LeadDetailPage(props: PageProps<'/leads/[id]'>) {
   const { id } = await props.params;
   const supabase = getSupabaseServerClient();
 
-  const { data: lead } = await supabase.from('leads').select('*').eq('id', id).maybeSingle();
+  const { data: lead } = await supabase.from('bluedrop_leads').select('*').eq('id', id).maybeSingle();
   if (!lead) notFound();
   const typedLead = lead as Lead;
 
-  const { data: allLeadsTags } = await supabase.from('leads').select('tags');
+  const { data: allLeadsTags } = await supabase.from('bluedrop_leads').select('tags');
   const tagSet = new Set<string>();
   for (const row of allLeadsTags ?? []) {
     for (const tag of row.tags ?? []) tagSet.add(tag);
@@ -90,12 +108,13 @@ export default async function LeadDetailPage(props: PageProps<'/leads/[id]'>) {
     .sort();
 
   const { data: events } = await supabase
-    .from('lead_events')
+    .from('bluedrop_lead_events')
     .select('*')
     .eq('lead_id', id)
     .order('created_at', { ascending: false });
 
-  const alertNeeded = needsTemplateMessage(typedLead.stage, typedLead.last_message_at);
+  const alertNeeded = needsTemplateMessage(typedLead.estado_solicitud, typedLead.last_message_at);
+  const leadName = [typedLead.nombre, typedLead.apellido].filter(Boolean).join(' ').trim() || 'Sin nombre';
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -106,38 +125,38 @@ export default async function LeadDetailPage(props: PageProps<'/leads/[id]'>) {
 
       <header className="mt-4 mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">{typedLead.name ?? 'Sin nombre'}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{leadName}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{typedLead.whatsapp_number}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Badge className={STAGE_BADGE_CLASSES[typedLead.stage]}>
-            {STAGE_LABELS[typedLead.stage]}
+          <Badge className={ESTADO_BADGE_CLASSES[typedLead.estado_solicitud]}>
+            {ESTADO_LABELS[typedLead.estado_solicitud]}
           </Badge>
-          {typedLead.lucy_paused ? (
-            <form action={resumeLucy}>
+          {typedLead.franco_paused ? (
+            <form action={resumeFranco}>
               <input type="hidden" name="leadId" value={typedLead.id} />
               <Button type="submit" size="sm" className="bg-emerald-600 text-white hover:bg-emerald-700">
                 <PlayCircle className="size-4" />
-                Reactivar a Lucy
+                Reactivar a Franco
               </Button>
             </form>
           ) : (
-            <form action={pauseLucy}>
+            <form action={pauseFranco}>
               <input type="hidden" name="leadId" value={typedLead.id} />
               <Button type="submit" size="sm" variant="destructive">
                 <PauseCircle className="size-4" />
-                Pausar a Lucy
+                Pausar a Franco
               </Button>
             </form>
           )}
         </div>
       </header>
 
-      {typedLead.lucy_paused && (
+      {typedLead.franco_paused && (
         <Alert className="mb-6 border-slate-300 bg-slate-100 text-slate-800">
           <PauseCircle className="size-4" />
           <AlertDescription>
-            Lucy está pausada para este lead — sus mensajes se siguen guardando aquí, pero ella ya no contesta
+            Franco está pausado para este lead — sus mensajes se siguen guardando aquí, pero ya no contesta
             automáticamente. Alguien del equipo debe darle seguimiento a mano.
           </AlertDescription>
         </Alert>
@@ -162,9 +181,71 @@ export default async function LeadDetailPage(props: PageProps<'/leads/[id]'>) {
           <p className="text-muted-foreground">Último mensaje</p>
           <p className="text-foreground">{formatDate(typedLead.last_message_at)}</p>
         </div>
+      </Card>
+
+      <Card className="mb-6 grid grid-cols-2 gap-4 p-4 text-sm">
         <div className="col-span-2">
-          <p className="text-muted-foreground">Último interés</p>
-          <p className="text-foreground">{typedLead.last_interest_topic ?? '—'}</p>
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Servicio</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Servicio de interés</p>
+          <p className="text-foreground">{typedLead.servicio_interes ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Tipo de necesidad</p>
+          <p className="text-foreground">{typedLead.tipo_necesidad ?? '—'}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground">Información de la trampa</p>
+          <p className="text-foreground">{typedLead.informacion_trampa ?? '—'}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground">Problemática actual</p>
+          <p className="text-foreground">{typedLead.problematica_actual ?? '—'}</p>
+        </div>
+      </Card>
+
+      <Card className="mb-6 grid grid-cols-2 gap-4 p-4 text-sm">
+        <div className="col-span-2">
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Ubicación</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">¿En Mérida?</p>
+          <p className="text-foreground">{typedLead.ubicacion_merida}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Zona</p>
+          <p className="text-foreground">{typedLead.zona_merida ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Negocio</p>
+          <p className="text-foreground">{typedLead.nombre_negocio ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Dirección / Maps</p>
+          <p className="text-foreground">{typedLead.ubicacion_negocio ?? '—'}</p>
+        </div>
+      </Card>
+
+      <Card className="mb-6 grid grid-cols-2 gap-4 p-4 text-sm">
+        <div className="col-span-2">
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Canalización</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Requiere asesor</p>
+          <p className="text-foreground">{typedLead.requiere_asesor ? 'Sí' : 'No'}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Preferencia de contacto</p>
+          <p className="text-foreground">{typedLead.preferencia_contacto ?? '—'}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground">Motivo de canalización</p>
+          <p className="text-foreground">{typedLead.motivo_canalizacion ?? '—'}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-muted-foreground">Recursos enviados</p>
+          <p className="text-foreground">{(typedLead.recurso_enviado ?? []).join(', ') || '—'}</p>
         </div>
       </Card>
 
@@ -211,17 +292,17 @@ export default async function LeadDetailPage(props: PageProps<'/leads/[id]'>) {
       </section>
 
       <section className="mb-8 flex flex-wrap gap-2">
-        <form action={markPaid}>
+        <form action={markCerrada}>
           <input type="hidden" name="leadId" value={typedLead.id} />
-          <Button className="bg-emerald-600 text-white hover:bg-emerald-700">Marcar pagado / inscrito</Button>
+          <Button className="bg-emerald-600 text-white hover:bg-emerald-700">Marcar cerrada</Button>
         </form>
-        <form action={markLost}>
+        <form action={markConError}>
           <input type="hidden" name="leadId" value={typedLead.id} />
-          <Button variant="destructive">Marcar perdido / sin respuesta</Button>
+          <Button variant="destructive">Marcar con error</Button>
         </form>
-        <form action={reopenAsInterested}>
+        <form action={reopenEnCurso}>
           <input type="hidden" name="leadId" value={typedLead.id} />
-          <Button variant="outline">Reabrir como interesado</Button>
+          <Button variant="outline">Reabrir como en curso</Button>
         </form>
       </section>
 

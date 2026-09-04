@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 function unauthorized(): NextResponse {
   return new NextResponse('Autenticación requerida', {
     status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Dashboard Lucy"' },
+    headers: { 'WWW-Authenticate': 'Basic realm="Dashboard Blue Drop"' },
   });
 }
 

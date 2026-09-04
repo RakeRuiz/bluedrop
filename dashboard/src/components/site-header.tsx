@@ -1,11 +1,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { PauseCircle, PlayCircle } from 'lucide-react';
-import { getLucyGlobalEnabled, setLucyGlobalEnabled } from '@/app/actions';
+import { getFrancoGlobalEnabled, setFrancoGlobalEnabled } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 
 export async function SiteHeader() {
-  const enabled = await getLucyGlobalEnabled();
+  const enabled = await getFrancoGlobalEnabled();
 
   return (
     <header className="border-b bg-card">
@@ -13,26 +13,26 @@ export async function SiteHeader() {
         <Link href="/" className="flex items-center gap-3">
           <Image src="/logo.png" alt="" width={36} height={36} className="h-9 w-9" priority />
           <div className="leading-tight">
-            <p className="font-semibold text-foreground">Rake y René</p>
-            <p className="text-xs text-muted-foreground">Leads del taller de IA</p>
+            <p className="font-semibold text-foreground">Blue Drop</p>
+            <p className="text-xs text-muted-foreground">Leads de WhatsApp — Franco</p>
           </div>
         </Link>
 
-        <form action={setLucyGlobalEnabled} className="flex items-center gap-2">
+        <form action={setFrancoGlobalEnabled} className="flex items-center gap-2">
           <input type="hidden" name="enabled" value={(!enabled).toString()} />
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            Lucy está {enabled ? 'activa' : 'apagada'}
+            Franco está {enabled ? 'activo' : 'apagado'}
           </span>
           <Button type="submit" size="sm" variant={enabled ? 'outline' : 'destructive'}>
             {enabled ? (
               <>
                 <PauseCircle className="size-4" />
-                Apagar a Lucy
+                Apagar a Franco
               </>
             ) : (
               <>
                 <PlayCircle className="size-4" />
-                Encender a Lucy
+                Encender a Franco
               </>
             )}
           </Button>

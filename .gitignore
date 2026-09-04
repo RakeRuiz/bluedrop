@@ -8,3 +8,16 @@ dist/
 .env.*.local
 "Claves 1er agente mastra.txt"
 Claves 1er agente mastra.txt
+
+# Material fuente de Blue Drop ya subido a Supabase Storage — no hace falta
+# en el repo (son varios MB de video/imagen/PDF). Anclado a la raíz para no
+# afectar imágenes que sí necesita el dashboard (ej. dashboard/public/*.png).
+/*.mp4
+/*.pdf
+/logo.jpeg
+/Cómo usar el Antiolores mascotas.png
+/Instrucciones eliminador de olores tuberias.png
+
+# Logs de servidores locales y herramientas de prueba, no son parte del producto.
+*-dev.log
+chat-local.html

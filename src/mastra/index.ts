@@ -2,15 +2,15 @@ import 'dotenv/config';
 import { Mastra } from '@mastra/core';
 import { PinoLogger } from '@mastra/loggers';
 import { registerApiRoute } from '@mastra/core/server';
-import { lucyAgent } from './agents/lucy.agent.js';
+import { francoAgent } from './agents/franco.agent.js';
 import { postgresStorage } from './storage.js';
 import { verifyZernioSignature } from '../server/lib/verify-signature.js';
 import { handleZernioWebhookEvent } from '../server/routes/webhook-zernio.js';
 
 export const mastra = new Mastra({
-  agents: { lucyAgent },
+  agents: { francoAgent },
   storage: postgresStorage,
-  logger: new PinoLogger({ name: 'lucy-mastra', level: 'info' }),
+  logger: new PinoLogger({ name: 'bluedrop-mastra', level: 'info' }),
   server: {
     apiRoutes: [
       registerApiRoute('/webhooks/zernio', {

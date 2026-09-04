@@ -102,3 +102,23 @@ export async function sendInboxMessage(conversationId: string, message: string):
     body: JSON.stringify({ accountId, message }),
   });
 }
+
+export type ZernioAttachmentType = 'image' | 'video' | 'document';
+
+export async function sendInboxAttachment(
+  conversationId: string,
+  attachmentUrl: string,
+  attachmentType: ZernioAttachmentType,
+  caption?: string,
+): Promise<void> {
+  const accountId = requireEnv('ZERNIO_ACCOUNT_ID');
+  await zernioFetch(`/inbox/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({
+      accountId,
+      attachmentUrl,
+      attachmentType,
+      ...(caption ? { message: caption } : {}),
+    }),
+  });
+}

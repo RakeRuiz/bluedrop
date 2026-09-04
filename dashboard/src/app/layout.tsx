@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dashboard Lucy",
-  description: "Seguimiento de leads del Taller de Inteligencia Artificial",
+  title: "Dashboard Blue Drop",
+  description: "Seguimiento de leads de Franco por WhatsApp",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-muted/40">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
           <SiteHeader />
           {children}
         </ThemeProvider>

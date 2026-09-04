@@ -1,9 +1,9 @@
-export async function notifyRene(text: string): Promise<void> {
+export async function notifyAsesor(text: string): Promise<void> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_RENE_CHAT_ID;
+  const chatId = process.env.TELEGRAM_ASESOR_CHAT_ID;
 
   if (!botToken || !chatId) {
-    console.warn('[telegram] TELEGRAM_BOT_TOKEN o TELEGRAM_RENE_CHAT_ID no configurados; no se envió el aviso.', {
+    console.warn('[telegram] TELEGRAM_BOT_TOKEN o TELEGRAM_ASESOR_CHAT_ID no configurados; no se envió el aviso.', {
       text,
     });
     return;

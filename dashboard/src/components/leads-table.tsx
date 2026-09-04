@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown, ChevronsUpDown, BellRing, PauseCircle, Plus } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronsUpDown, BellRing, PauseCircle, UserCog, Plus } from 'lucide-react';
 import type { Lead } from '@/lib/supabase-server';
-import { STAGE_LABELS, STAGE_BADGE_CLASSES } from '@/lib/lead-stage';
+import { ESTADO_LABELS, ESTADO_BADGE_CLASSES } from '@/lib/lead-status';
 import { needsTemplateMessage } from '@/lib/needs-template';
 import { addTagToMany } from '@/app/actions';
 import { addTag } from '@/app/leads/[id]/actions';
@@ -24,6 +24,11 @@ function formatDate(value: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function leadName(lead: Lead): string {
+  const full = [lead.nombre, lead.apellido].filter(Boolean).join(' ').trim();
+  return full || 'Sin nombre';
 }
 
 /** Etiquetas ya usadas antes, como botones para dar clic en vez de escribir. */
@@ -88,7 +93,7 @@ function QuickAddTagDialog({ leadId, allTags }: { leadId: string; allTags: strin
   );
 }
 
-type SortField = 'name' | 'last_message_at';
+type SortField = 'nombre' | 'last_message_at';
 
 export function LeadsTable({
   leads,
@@ -188,13 +193,15 @@ export function LeadsTable({
               <Checkbox checked={allSelected} onCheckedChange={(checked) => toggleAll(checked === true)} aria-label="Seleccionar todos" />
             </TableHead>
             <TableHead>
-              <Link href={sortHref('name')} className="inline-flex items-center gap-1 hover:text-foreground">
+              <Link href={sortHref('nombre')} className="inline-flex items-center gap-1 hover:text-foreground">
                 Nombre
-                <SortIcon field="name" />
+                <SortIcon field="nombre" />
               </Link>
             </TableHead>
             <TableHead>WhatsApp</TableHead>
-            <TableHead>Etapa</TableHead>
+            <TableHead>Servicio de interés</TableHead>
+            <TableHead>Zona / Ubicación</TableHead>
+            <TableHead>Estado</TableHead>
             <TableHead>Etiquetas</TableHead>
             <TableHead>
               <Link href={sortHref('last_message_at')} className="inline-flex items-center gap-1 hover:text-foreground">
@@ -206,29 +213,36 @@ export function LeadsTable({
         </TableHeader>
         <TableBody>
           {leads.map((lead) => {
-            const alertNeeded = needsTemplateMessage(lead.stage, lead.last_message_at);
+            const alertNeeded = needsTemplateMessage(lead.estado_solicitud, lead.last_message_at);
             return (
               <TableRow key={lead.id} data-state={selected.has(lead.id) ? 'selected' : undefined}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(lead.id)}
                     onCheckedChange={(checked) => toggleOne(lead.id, checked === true)}
-                    aria-label={`Seleccionar ${lead.name ?? lead.whatsapp_number}`}
+                    aria-label={`Seleccionar ${leadName(lead)}`}
                   />
                 </TableCell>
                 <TableCell>
                   <Link href={`/leads/${lead.id}`} className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline">
-                    {lead.lucy_paused && (
-                      <span title="Lucy pausada — un humano debe contestar">
+                    {lead.franco_paused && (
+                      <span title="Franco pausado — un humano debe contestar">
                         <PauseCircle className="size-3.5 text-slate-500" />
                       </span>
                     )}
-                    {lead.name ?? 'Sin nombre'}
+                    {lead.requiere_asesor && (
+                      <span title="Requiere atención de un asesor">
+                        <UserCog className="size-3.5 text-brand" />
+                      </span>
+                    )}
+                    {leadName(lead)}
                   </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{lead.whatsapp_number}</TableCell>
+                <TableCell className="text-muted-foreground">{lead.servicio_interes ?? '—'}</TableCell>
+                <TableCell className="text-muted-foreground">{lead.zona_merida ?? lead.ubicacion_negocio ?? '—'}</TableCell>
                 <TableCell>
-                  <Badge className={STAGE_BADGE_CLASSES[lead.stage]}>{STAGE_LABELS[lead.stage]}</Badge>
+                  <Badge className={ESTADO_BADGE_CLASSES[lead.estado_solicitud]}>{ESTADO_LABELS[lead.estado_solicitud]}</Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
@@ -255,7 +269,7 @@ export function LeadsTable({
           })}
           {leads.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+              <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                 Todavía no hay leads que mostrar.
               </TableCell>
             </TableRow>

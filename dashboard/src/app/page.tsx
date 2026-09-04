@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { getSupabaseServerClient, type Lead } from '@/lib/supabase-server';
-import { LEAD_STAGES, STAGE_LABELS, STAGE_ICONS, isLeadStage, type LeadStage } from '@/lib/lead-stage';
+import { ESTADO_SOLICITUD_VALUES, ESTADO_LABELS, ESTADO_ICONS, isEstadoSolicitud, type EstadoSolicitud } from '@/lib/lead-status';
 import { LeadsTable } from '@/components/leads-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 20;
-const SORT_FIELDS = ['name', 'last_message_at'] as const;
+const SORT_FIELDS = ['nombre', 'last_message_at'] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 function isSortField(value: string): value is SortField {
@@ -20,8 +20,8 @@ function isSortField(value: string): value is SortField {
 
 export default async function DashboardPage(props: PageProps<'/'>) {
   const searchParams = await props.searchParams;
-  const stageParam = typeof searchParams.stage === 'string' ? searchParams.stage : undefined;
-  const activeStage = stageParam && isLeadStage(stageParam) ? stageParam : undefined;
+  const estadoParam = typeof searchParams.estado === 'string' ? searchParams.estado : undefined;
+  const activeEstado = estadoParam && isEstadoSolicitud(estadoParam) ? estadoParam : undefined;
   const activeTag = typeof searchParams.tag === 'string' ? searchParams.tag : undefined;
   const q = typeof searchParams.q === 'string' ? searchParams.q.trim() : '';
   const sortParam = typeof searchParams.sort === 'string' ? searchParams.sort : undefined;
@@ -31,26 +31,32 @@ export default async function DashboardPage(props: PageProps<'/'>) {
 
   const supabase = getSupabaseServerClient();
 
-  const { data: allLeads, error: countError } = await supabase.from('leads').select('id, stage, tags');
+  const { data: allLeads, error: countError } = await supabase.from('bluedrop_leads').select('id, estado_solicitud, tags');
 
-  const counts = Object.fromEntries(LEAD_STAGES.map((stage) => [stage, 0])) as Record<LeadStage, number>;
+  const counts = Object.fromEntries(ESTADO_SOLICITUD_VALUES.map((estado) => [estado, 0])) as Record<
+    EstadoSolicitud,
+    number
+  >;
   const tagSet = new Set<string>();
   for (const lead of allLeads ?? []) {
-    const stage = lead.stage as LeadStage;
-    if (stage in counts) counts[stage] += 1;
+    const estado = lead.estado_solicitud as EstadoSolicitud;
+    if (estado in counts) counts[estado] += 1;
     for (const tag of lead.tags ?? []) tagSet.add(tag);
   }
   const total = allLeads?.length ?? 0;
   const allTags = Array.from(tagSet).sort();
 
   let query = supabase
-    .from('leads')
+    .from('bluedrop_leads')
     .select('*', { count: 'exact' })
     .order(sort, { ascending: dir === 'asc', nullsFirst: false });
 
-  if (activeStage) query = query.eq('stage', activeStage);
+  if (activeEstado) query = query.eq('estado_solicitud', activeEstado);
   if (activeTag) query = query.contains('tags', [activeTag]);
-  if (q) query = query.or(`name.ilike.%${q}%,whatsapp_number.ilike.%${q}%,last_interest_topic.ilike.%${q}%`);
+  if (q)
+    query = query.or(
+      `nombre.ilike.%${q}%,apellido.ilike.%${q}%,whatsapp_number.ilike.%${q}%,servicio_interes.ilike.%${q}%`,
+    );
 
   const from = (page - 1) * PAGE_SIZE;
   const { data: leads, error: leadsError, count: filteredCount } = await query.range(from, from + PAGE_SIZE - 1);
@@ -59,7 +65,7 @@ export default async function DashboardPage(props: PageProps<'/'>) {
   const pageCount = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
 
   const baseParams: Record<string, string> = {};
-  if (activeStage) baseParams.stage = activeStage;
+  if (activeEstado) baseParams.estado = activeEstado;
   if (activeTag) baseParams.tag = activeTag;
   if (q) baseParams.q = q;
 
@@ -77,8 +83,8 @@ export default async function DashboardPage(props: PageProps<'/'>) {
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Leads del taller</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Seguimiento de conversaciones de Lucy por WhatsApp.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Leads de Blue Drop</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Seguimiento de conversaciones de Franco por WhatsApp.</p>
         </div>
         <Button asChild variant="outline">
           <a href={`/api/export?${exportParams.toString()}`}>
@@ -98,27 +104,27 @@ export default async function DashboardPage(props: PageProps<'/'>) {
         <Link
           href="/"
           className={`flex flex-col items-center gap-1 rounded-xl border px-4 py-3 text-center transition ${
-            !activeStage ? 'border-brand bg-brand text-brand-foreground' : 'border-border bg-card hover:border-brand/40'
+            !activeEstado ? 'border-brand bg-brand text-brand-foreground' : 'border-border bg-card hover:border-brand/40'
           }`}
         >
           <div className="text-2xl font-semibold">{total}</div>
           <div className="text-xs">Todos</div>
         </Link>
-        {LEAD_STAGES.map((stage) => {
-          const Icon = STAGE_ICONS[stage];
-          const pct = total > 0 ? Math.round((counts[stage] / total) * 100) : 0;
-          const active = activeStage === stage;
+        {ESTADO_SOLICITUD_VALUES.map((estado) => {
+          const Icon = ESTADO_ICONS[estado];
+          const pct = total > 0 ? Math.round((counts[estado] / total) * 100) : 0;
+          const active = activeEstado === estado;
           return (
             <Link
-              key={stage}
-              href={`/?stage=${stage}`}
+              key={estado}
+              href={`/?estado=${estado}`}
               className={`flex flex-col items-center gap-1 rounded-xl border px-4 py-3 text-center transition ${
                 active ? 'border-brand bg-brand text-brand-foreground' : 'border-border bg-card hover:border-brand/40'
               }`}
             >
               <Icon className="size-4 opacity-80" />
-              <div className="text-2xl font-semibold">{counts[stage]}</div>
-              <div className="text-xs">{STAGE_LABELS[stage]}</div>
+              <div className="text-2xl font-semibold">{counts[estado]}</div>
+              <div className="text-xs">{ESTADO_LABELS[estado]}</div>
               <div className={`h-1 w-full rounded-full ${active ? 'bg-brand-foreground/30' : 'bg-muted'}`}>
                 <div
                   className={`h-1 rounded-full ${active ? 'bg-brand-foreground' : 'bg-brand'}`}
@@ -131,12 +137,12 @@ export default async function DashboardPage(props: PageProps<'/'>) {
       </section>
 
       <form className="mb-4 flex flex-wrap items-center gap-2" action="/">
-        {activeStage && <input type="hidden" name="stage" value={activeStage} />}
+        {activeEstado && <input type="hidden" name="estado" value={activeEstado} />}
         <Input
           type="text"
           name="q"
           defaultValue={q}
-          placeholder="Buscar por nombre, WhatsApp o interés..."
+          placeholder="Buscar por nombre, WhatsApp o servicio..."
           className="w-full max-w-sm"
         />
         {allTags.length > 0 && (
@@ -154,7 +160,7 @@ export default async function DashboardPage(props: PageProps<'/'>) {
           </select>
         )}
         <Button type="submit">Buscar</Button>
-        {(activeStage || activeTag || q) && (
+        {(activeEstado || activeTag || q) && (
           <Button asChild variant="ghost">
             <Link href="/">Limpiar</Link>
           </Button>

@@ -1,10 +1,4 @@
-import {
-  upsertLeadSkeleton,
-  updateLeadStage,
-  logLeadEvent,
-  setLeadZernioContactId,
-  type Lead,
-} from './supabase-client.js';
+import { upsertLeadSkeleton, setLeadZernioContactId, type Lead } from './supabase-client.js';
 import { upsertContact } from './zernio-client.js';
 
 export async function ensureLead(whatsappNumber: string): Promise<Lead> {
@@ -21,10 +15,4 @@ export async function ensureLead(whatsappNumber: string): Promise<Lead> {
   }
 
   return lead;
-}
-
-export async function markContactedIfNeeded(lead: Lead): Promise<void> {
-  if (lead.stage !== 'nuevo') return;
-  await updateLeadStage(lead.id, 'contactado');
-  await logLeadEvent(lead.id, 'stage_changed', { from: 'nuevo', to: 'contactado', reason: 'primera_respuesta_lucy' });
 }

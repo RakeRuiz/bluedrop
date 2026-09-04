@@ -1,15 +1,15 @@
 import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { normalizeWhatsappNumber, threadIdForWhatsapp } from '../../mastra/memory/index.js';
-import { ensureLead, markContactedIfNeeded } from '../lib/lead-lifecycle.js';
-import { logLeadEvent, touchLeadLastMessage, isLucyGloballyEnabled } from '../lib/supabase-client.js';
+import { ensureLead } from '../lib/lead-lifecycle.js';
+import { logLeadEvent, touchLeadLastMessage, isFrancoGloballyEnabled } from '../lib/supabase-client.js';
 import { sendInboxMessage } from '../lib/zernio-client.js';
-import type { LucyRequestContext } from '../../mastra/request-context.js';
+import type { FrancoRequestContext } from '../../mastra/request-context.js';
 
 /**
- * Forma confirmada con un mensaje real de WhatsApp (2026-08-30):
- * { event: "message.received", message: { platform, direction, text, conversationId,
- *   sender: { phoneNumber, name, ... } }, conversation: {...}, account: {...} }
+ * Forma confirmada con un mensaje real de WhatsApp (heredada de lucy-mastra,
+ * 2026-08-30): { event: "message.received", message: { platform, direction, text,
+ * conversationId, sender: { phoneNumber, name, ... } }, conversation: {...}, account: {...} }
  * Se mantienen rutas alternativas como respaldo por si Zernio cambia el payload
  * para otras plataformas o versiones futuras.
  */
@@ -108,29 +108,30 @@ export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra)
   await touchLeadLastMessage(lead.id);
   await logLeadEvent(lead.id, 'message_in', { text });
 
-  if (lead.lucy_paused) {
+  if (lead.franco_paused) {
     // Un humano ya está atendiendo esta conversación: se guarda el mensaje
-    // pero Lucy no genera ninguna respuesta automática.
+    // pero Franco no genera ninguna respuesta automática.
     return;
   }
 
-  if (!(await isLucyGloballyEnabled())) {
+  if (!(await isFrancoGloballyEnabled())) {
     // Interruptor general apagado desde el dashboard: se guarda el mensaje
     // en todos los leads, pero nadie recibe respuesta automática.
     return;
   }
 
-  const requestContext = new RequestContext<LucyRequestContext>();
+  const requestContext = new RequestContext<FrancoRequestContext>();
   requestContext.set('leadId', lead.id);
   requestContext.set('whatsappNumber', whatsappNumber);
+  requestContext.set('conversationId', conversationId);
 
   const promptText =
-    !lead.name && senderName
-      ? `[Nota interna, no visible para el cliente: su nombre de perfil de WhatsApp es "${senderName}". Si te parece un nombre real de persona, guárdalo con la tool save_lead_name sin preguntar. Si parece un apodo, nombre de negocio, emoji o algo que no sea un nombre de persona, no lo uses y pregúntale su nombre con naturalidad.]\n\n${text}`
+    !lead.nombre && senderName
+      ? `[Nota interna, no visible para el cliente: su nombre de perfil de WhatsApp es "${senderName}". Si te parece un nombre real de persona, guárdalo con la tool save_lead_data (campo nombre) sin preguntar. Si parece un apodo, nombre de negocio, emoji o algo que no sea un nombre de persona, no lo uses y pregúntale su nombre con naturalidad cuando el flujo lo requiera.]\n\n${text}`
       : text;
 
-  const lucy = mastra.getAgent('lucyAgent');
-  const response = await lucy.generate(promptText, {
+  const franco = mastra.getAgent('francoAgent');
+  const response = await franco.generate(promptText, {
     memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
     requestContext,
   });
@@ -140,6 +141,4 @@ export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra)
     await sendInboxMessage(conversationId, replyText);
     await logLeadEvent(lead.id, 'message_out', { text: replyText });
   }
-
-  await markContactedIfNeeded(lead);
 }

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "93f53fd1c0352d3d7ec17b8f73d7351bf76f4821e55d123c9d2abc2c53ba48e4"
+    },
+    "mastra": {
+      "source": "mastra-ai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mastra/SKILL.md",
+      "computedHash": "fb441925625ae056b2d7d76c736c357c57e62901ee75d3da4dcf2feb19c635c9"
+    },
+    "zernio-api": {
+      "source": "zernio-dev/zernio-api",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "aa07bac4e674649c2cb835fae64a910f86d5bc616bc1737741b8c23272d3f591"
+    }
+  }
+}

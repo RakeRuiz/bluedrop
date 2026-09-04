@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.mastra/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*.local
+"Claves 1er agente mastra.txt"
+Claves 1er agente mastra.txt

@@ -6,7 +6,7 @@ import { LeadsTable } from '@/components/leads-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { reportDashboardError } from '@/lib/dev-alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +61,10 @@ export default async function DashboardPage(props: PageProps<'/'>) {
   const from = (page - 1) * PAGE_SIZE;
   const { data: leads, error: leadsError, count: filteredCount } = await query.range(from, from + PAGE_SIZE - 1);
 
+  if (countError || leadsError) {
+    reportDashboardError('dashboard-leads-query', countError ?? leadsError);
+  }
+
   const resultCount = filteredCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
 
@@ -93,12 +97,6 @@ export default async function DashboardPage(props: PageProps<'/'>) {
           </a>
         </Button>
       </div>
-
-      {(countError || leadsError) && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>No se pudo leer Supabase: {countError?.message ?? leadsError?.message}</AlertDescription>
-        </Alert>
-      )}
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Link

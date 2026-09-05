@@ -11,7 +11,14 @@ export async function SiteHeader() {
     <header className="border-b bg-card">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-6 py-4">
         <Link href="/" className="flex items-center gap-3">
-          <Image src="/logo.png" alt="" width={36} height={36} className="h-9 w-9" priority />
+          <Image
+            src="/logo.png"
+            alt=""
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-full object-cover"
+            priority
+          />
           <div className="leading-tight">
             <p className="font-semibold text-foreground">Blue Drop</p>
             <p className="text-xs text-muted-foreground">Leads de WhatsApp — Franco</p>

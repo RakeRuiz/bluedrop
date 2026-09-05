@@ -13,7 +13,7 @@ export const francoAgent = new Agent({
   instructions: () =>
     `${francoPersona}\n\n${francoFlow}\n\n## Base de conocimiento (única fuente de verdad, no inventes datos fuera de aquí)\n${buildBlueDropKnowledge()}`,
   // Confirmado disponible vía `node .agents/skills/mastra/scripts/provider-registry.mjs --provider openai`.
-  model: 'openai/gpt-4o-mini',
+  model: 'openai/gpt-4.1-mini',
   tools: { saveLeadDataTool, sendResourceTool, handoffToAsesorTool },
   memory: francoMemory,
 });

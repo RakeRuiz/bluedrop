@@ -98,7 +98,7 @@ export default async function DashboardPage(props: PageProps<'/'>) {
         </Button>
       </div>
 
-      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Link
           href="/"
           className={`flex flex-col items-center gap-1 rounded-xl border px-4 py-3 text-center transition ${
@@ -108,7 +108,7 @@ export default async function DashboardPage(props: PageProps<'/'>) {
           <div className="text-2xl font-semibold">{total}</div>
           <div className="text-xs">Todos</div>
         </Link>
-        {ESTADO_SOLICITUD_VALUES.map((estado) => {
+        {ESTADO_SOLICITUD_VALUES.filter((estado) => estado !== 'con_error').map((estado) => {
           const Icon = ESTADO_ICONS[estado];
           const pct = total > 0 ? Math.round((counts[estado] / total) * 100) : 0;
           const active = activeEstado === estado;

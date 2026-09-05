@@ -30,6 +30,7 @@ const EVENT_LABELS: Record<LeadEvent['event_type'], string> = {
   resource_sent: 'Recurso enviado',
   handoff_asesor: 'Canalización a asesor',
   manual_update: 'Actualización',
+  error: 'Error técnico',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -57,6 +58,9 @@ function describeEvent(event: LeadEvent): string | null {
 
     case 'resource_sent':
       return typeof payload.resourceKey === 'string' ? `Se envió: ${payload.resourceKey}` : null;
+
+    case 'error':
+      return typeof payload.message === 'string' ? payload.message : null;
 
     case 'handoff_asesor': {
       const resumen = typeof payload.resumen === 'string' ? payload.resumen : null;

@@ -41,7 +41,7 @@ export interface Lead {
 export interface LeadEvent {
   id: string;
   lead_id: string;
-  event_type: 'message_in' | 'message_out' | 'resource_sent' | 'handoff_asesor' | 'manual_update';
+  event_type: 'message_in' | 'message_out' | 'resource_sent' | 'handoff_asesor' | 'manual_update' | 'error';
   payload: Record<string, unknown>;
   created_at: string;
 }

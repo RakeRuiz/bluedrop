@@ -2,9 +2,13 @@ import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { normalizeWhatsappNumber, threadIdForWhatsapp } from '../../mastra/memory/index.js';
 import { ensureLead } from '../lib/lead-lifecycle.js';
-import { logLeadEvent, touchLeadLastMessage, isFrancoGloballyEnabled } from '../lib/supabase-client.js';
+import { logLeadEvent, touchLeadLastMessage, isFrancoGloballyEnabled, markLeadError } from '../lib/supabase-client.js';
 import { sendInboxMessage } from '../lib/zernio-client.js';
+import { reportAgentError } from '../lib/dev-alerts.js';
 import type { FrancoRequestContext } from '../../mastra/request-context.js';
+
+const FALLBACK_ERROR_MESSAGE =
+  'Disculpa, tuvimos un problema técnico procesando tu mensaje. Ya avisamos a nuestro equipo y en breve un asesor te contactará directamente. 🙏';
 
 /**
  * Forma confirmada con un mensaje real de WhatsApp (heredada de lucy-mastra,
@@ -65,6 +69,24 @@ function extractIncomingWhatsappMessage(payload: unknown): ExtractedMessage | nu
     conversationId,
     senderName: typeof senderName === 'string' ? senderName : undefined,
   };
+}
+
+/**
+ * gpt-4.1-mini a veces escribe texto visible tanto en el paso donde llama a una
+ * tool como en el paso final tras ver el resultado, y Mastra concatena ambos en
+ * `response.text` — el cliente recibe el mismo mensaje repetido. En vez de
+ * depender de que el modelo respete la instrucción de no hacerlo, nos quedamos
+ * solo con el texto del ÚLTIMO paso no vacío (la palabra final del modelo tras
+ * cualquier tool call), que es siempre la versión completa y correcta.
+ */
+function extractFinalReplyText(response: { text: string; steps?: unknown }): string {
+  const steps = Array.isArray(response.steps) ? (response.steps as Array<{ text?: unknown }>) : [];
+  const stepTexts = steps
+    .map((step) => (typeof step.text === 'string' ? step.text.trim() : ''))
+    .filter((stepText) => stepText.length > 0);
+
+  if (stepTexts.length > 0) return stepTexts[stepTexts.length - 1];
+  return response.text;
 }
 
 // Deduplicación en memoria: Zernio puede reintentar el mismo evento (mismo `id`)
@@ -130,15 +152,33 @@ export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra)
       ? `[Nota interna, no visible para el cliente: su nombre de perfil de WhatsApp es "${senderName}". Si te parece un nombre real de persona, guárdalo con la tool save_lead_data (campo nombre) sin preguntar. Si parece un apodo, nombre de negocio, emoji o algo que no sea un nombre de persona, no lo uses y pregúntale su nombre con naturalidad cuando el flujo lo requiera.]\n\n${text}`
       : text;
 
-  const franco = mastra.getAgent('francoAgent');
-  const response = await franco.generate(promptText, {
-    memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
-    requestContext,
-  });
+  try {
+    const franco = mastra.getAgent('francoAgent');
+    const response = await franco.generate(promptText, {
+      memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
+      requestContext,
+    });
 
-  const replyText = response.text;
-  if (replyText) {
-    await sendInboxMessage(conversationId, replyText);
-    await logLeadEvent(lead.id, 'message_out', { text: replyText });
+    const replyText = extractFinalReplyText(response);
+    if (replyText) {
+      await sendInboxMessage(conversationId, replyText);
+      await logLeadEvent(lead.id, 'message_out', { text: replyText });
+    }
+  } catch (error) {
+    // Algo falló generando o mandando la respuesta de Franco para este cliente
+    // en particular. Se pausa SOLO este lead (un humano debe reactivarlo desde
+    // el dashboard tras resolver el problema) — el resto de la operación sigue
+    // normal para todos los demás leads.
+    console.error('[webhook-zernio] Error generando o enviando la respuesta de Franco', error);
+
+    await markLeadError(lead.id, error).catch((markError) => {
+      console.error('[webhook-zernio] No se pudo marcar el lead con error', markError);
+    });
+
+    await sendInboxMessage(conversationId, FALLBACK_ERROR_MESSAGE).catch((sendError) => {
+      console.error('[webhook-zernio] No se pudo enviar el mensaje de disculpa al cliente', sendError);
+    });
+
+    reportAgentError('webhook-zernio-generate-or-send', error, { leadId: lead.id, whatsappNumber });
   }
 }

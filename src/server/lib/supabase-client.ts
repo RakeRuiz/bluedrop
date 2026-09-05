@@ -151,6 +151,18 @@ export async function setLeadZernioContactId(leadId: string, zernioContactId: st
   if (error) throw error;
 }
 
+export async function markLeadError(leadId: string, error: unknown): Promise<void> {
+  const { error: dbError } = await supabase
+    .from('bluedrop_leads')
+    .update({ estado_solicitud: 'con_error' satisfies EstadoSolicitud, franco_paused: true, updated_at: new Date().toISOString() })
+    .eq('id', leadId);
+
+  if (dbError) throw dbError;
+
+  const message = error instanceof Error ? error.message : String(error);
+  await logLeadEvent(leadId, 'error', { message });
+}
+
 export async function isFrancoGloballyEnabled(): Promise<boolean> {
   const { data, error } = await supabase.from('bluedrop_app_settings').select('franco_enabled').eq('id', true).maybeSingle();
 
@@ -164,7 +176,7 @@ export async function isFrancoGloballyEnabled(): Promise<boolean> {
 
 export async function logLeadEvent(
   leadId: string,
-  eventType: 'message_in' | 'message_out' | 'resource_sent' | 'handoff_asesor' | 'manual_update',
+  eventType: 'message_in' | 'message_out' | 'resource_sent' | 'handoff_asesor' | 'manual_update' | 'error',
   payload: Record<string, unknown> = {},
 ): Promise<void> {
   const { error } = await supabase.from('bluedrop_lead_events').insert({ lead_id: leadId, event_type: eventType, payload });

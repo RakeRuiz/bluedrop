@@ -7,6 +7,14 @@ export const YOUTUBE_TRAMPA = [
   { label: 'Video de trampas de grasa 2', url: 'https://youtube.com/shorts/j4h08oz-uJg' },
 ];
 
+// Videos de referencia por producto del hogar — se ofrecen cuando el cliente
+// pide un video y el archivo pesa demasiado para mandarlo como adjunto.
+export const YOUTUBE_HOGAR = {
+  eliminadorTuberias: 'https://youtube.com/shorts/_w95FoeZAS0?si=kjg_6aHi0Zjus8Gm',
+  bluePoop: 'https://youtube.com/shorts/QZMah7Ly9U0?si=J5ed8EskESyIwW72',
+  antioloresMascotas: 'https://youtube.com/shorts/iYuL5HP_lAs?si=Zjcrq9Femj3Ejr-B',
+};
+
 export const PUNTOS_VENTA_MERIDA = {
   papeleriaElReinoDelSaber: {
     producto: 'Eliminador de Olores para Tuberías',

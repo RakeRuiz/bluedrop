@@ -39,6 +39,16 @@ export const RESOURCE_CATALOG = {
     url: process.env.MEDIA_URL_PDF_COTIZACION_BOMBA,
     description: 'PDF de cotización del tratamiento con bomba dosificadora',
   },
+  IMAGEN_INSTRUCCIONES_SHOCK_TRAMPA: {
+    type: 'image',
+    url: process.env.MEDIA_URL_IMAGEN_INSTRUCCIONES_SHOCK_TRAMPA,
+    description: 'Carta de instrucciones de BlueDrop Shock para trampas de grasa',
+  },
+  IMAGEN_INSTRUCCIONES_SHOCK_REGISTRO: {
+    type: 'image',
+    url: process.env.MEDIA_URL_IMAGEN_INSTRUCCIONES_SHOCK_REGISTRO,
+    description: 'Carta de instrucciones de BlueDrop Shock para registros/líneas de drenaje',
+  },
 } as const satisfies Record<string, ResourceEntry>;
 
 export type ResourceKey = keyof typeof RESOURCE_CATALOG;

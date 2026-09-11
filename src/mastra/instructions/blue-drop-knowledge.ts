@@ -1,4 +1,4 @@
-import { YOUTUBE_TRAMPA, PUNTOS_VENTA_MERIDA, ENLACES_COMPRA } from '../resources/external-links.js';
+import { YOUTUBE_TRAMPA, YOUTUBE_HOGAR, PUNTOS_VENTA_MERIDA, ENLACES_COMPRA } from '../resources/external-links.js';
 
 // Base de conocimiento de Blue Drop. Es una función (no un string estático)
 // para que el enlace de compra del Alguicida (y cualquier otro dato pendiente
@@ -23,12 +23,12 @@ Efecto: previene solidificación de grasa, rompe tensión superficial de aceites
 
 Responsabilidad compartida: el cliente hace limpieza inicial antes de instalar, retira semanalmente la capa superficial de grasa y realiza limpiezas mayores periódicas (con mantenimiento constante, cada 3–6 meses aprox., varía según la operación).
 
-Precio normal: $2,500.00 MXN + IVA. Promoción vigente: 10% de descuento los primeros 3 meses → $2,250.00 MXN + IVA (sin factura, se maneja solo el monto sin IVA). No modificar estos montos ni crear condiciones adicionales.
+Precio normal: $2,500.00 MXN + IVA. Promoción vigente este mes: 10% de descuento durante los primeros 3 meses del tratamiento → $2,250.00 MXN + IVA (si no requiere factura, se maneja solo el monto sin IVA). No modificar estos montos ni crear condiciones adicionales.
 
 Cotización autorizada (PDF_COTIZACION_BOMBA): precio unitario base $2,500.00 MXN + IVA, pago de contado (transferencia o efectivo), entrega 1–2 días hábiles tras confirmación por escrito, volúmenes mayores requieren acuerdo previo, entrega libre a bordo en Mérida, cancelaciones con 48 h de anticipación por escrito, vigencia hasta el 5 de octubre de 2026. Al cotizar: comparte primero el PDF, después el mensaje de promoción por separado (nunca digas que la promo está dentro del PDF si se envió aparte).
 
 ## BlueDrop Shock (correctivo)
-Producto concentrado para trampas con problema activo: acumulación importante de grasa, saponificación/grasa endurecida, malos olores, flujo lento, riesgo de obstrucción. Modifica la consistencia de la grasa para facilitar su retiro — NO sustituye la limpieza mecánica, solo prepara el sistema.
+Producto concentrado para trampas con problema activo: acumulación importante de grasa, saponificación/grasa endurecida, malos olores, flujo lento, riesgo de obstrucción. Modifica la consistencia de la grasa para facilitar su retiro — NO sustituye la limpieza mecánica, solo prepara el sistema. También puede usarse en líneas de registro/drenaje con grasa saponificada, ayudando a controlar malos olores y a recuperar el funcionamiento del sistema (proceso distinto al de trampas: ver IMAGEN_INSTRUCCIONES_SHOCK_REGISTRO — no usar la tabla de dosificación de trampas para este caso).
 
 ### Fuera de Mérida (venta directa, bidón de 20 L)
 Tabla de dosificación autorizada:
@@ -58,16 +58,16 @@ Sin información técnica o comercial para diagnosticar o cotizar. Pedir nombre 
 Precios no definidos en esta base — consultar en la plataforma de compra.
 
 ### Antiolores de Mascotas
-Aromatizante en spray que neutraliza malos olores de mascotas (ej. orina). Uso: 3–5 disparos por área, aplicación directa, puede usarse diario. Presentación: spray 470 ml. Aromas: Gardenia, Madera, Lavanda.
-Puntos de venta en Mérida: Centro Veterinario Salud Animal, Veterinaria CannaPets, Abarrotes Carmita (ver PUNTOS_VENTA_MERIDA). Enlaces de compra: ver ENLACES_COMPRA.antioloresMascotas.
+Producto en spray diseñado para ayudar a eliminar y neutralizar los malos olores causados por mascotas, como el olor a orina. Puede aplicarse directamente en camas, sofás, tapetes, areneros y otras áreas donde se generen malos olores. Uso: 3–5 disparos, aplicación directa, puede usarse diario. Presentación: spray 470 ml. Aromas: Gardenia, Madera, Lavanda.
+Puntos de venta en Mérida: Centro Veterinario Salud Animal, Veterinaria CannaPets, Abarrotes Carmita (ver PUNTOS_VENTA_MERIDA). Enlaces de compra: ver ENLACES_COMPRA.antioloresMascotas. Video de referencia: ${YOUTUBE_HOGAR.antioloresMascotas}
 
 ### Eliminador de Olores para Tuberías
-Controla/elimina malos olores en inodoros, mingitorios y lavamanos. Uso: aplicar 25 ml directo en el punto, esperar 10–15 min, continuar uso habitual.
-Puntos de venta en Mérida: Tlapalería Andrea, Papelería El Reino del Saber, Abarrotes Carmita. Enlaces de compra: ver ENLACES_COMPRA.eliminadorTuberias.
+Producto diseñado para ayudar a controlar y neutralizar los malos olores que se generan en tuberías y sistemas de drenaje. Puede utilizarse en cifas de baños, lavamanos, drenajes y otros puntos conectados al sistema de tuberías, ayudando a mantener un ambiente más fresco y libre de malos olores.
+Puntos de venta en Mérida: Tlapalería Andrea, Papelería El Reino del Saber, Abarrotes Carmita. Enlaces de compra: ver ENLACES_COMPRA.eliminadorTuberias. Video de referencia: ${YOUTUBE_HOGAR.eliminadorTuberias}
 
 ### Blue Poop
 Neutralizador de olores de baño (no es solo un ambientador) — se aplica ANTES de usar el sanitario, unas atomizaciones sobre el agua de la taza, forma una barrera que controla el olor desde su origen. Presentación: spray/atomizador, práctico para transportar. Aromas: Cedro, Bergamota.
-Punto de venta en Mérida: Abarrotes Carmita. Enlaces de compra: ver ENLACES_COMPRA.bluePoop.
+Punto de venta en Mérida: Abarrotes Carmita. Enlaces de compra: ver ENLACES_COMPRA.bluePoop. No tiene imagen de instrucciones propia — si piden ver cómo se usa, comparte este video (nunca la imagen de otro producto): ${YOUTUBE_HOGAR.bluePoop}
 
 ### Alguicida
 Alguicida líquido concentrado de amplio espectro para piscinas residenciales y comerciales — controla y elimina algas verdes, previene algas negras. No hace espuma, compatible con cloro y otros químicos, no altera el pH, uso profesional.

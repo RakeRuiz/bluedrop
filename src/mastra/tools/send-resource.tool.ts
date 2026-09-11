@@ -10,16 +10,15 @@ const resourceKeys = Object.keys(RESOURCE_CATALOG) as [ResourceKey, ...ResourceK
 export const sendResourceTool = createTool({
   id: 'send-resource',
   description:
-    'Envía un video, imagen o PDF autorizado por su clave (VIDEO_USO_BOMBA_DOSIFICADORA, VIDEO_ANTES_Y_DESPUES_TRAMPA, IMAGEN_USO_ANTIODORES_MASCOTAS, IMAGEN_USO_ELIMINADOR_TUBERIAS, PDF_COTIZACION_BOMBA). Si el recurso no está configurado todavía, responde not_configured — nunca inventes el archivo ni digas que lo enviaste.',
+    'Envía un video, imagen o PDF autorizado por su clave (VIDEO_USO_BOMBA_DOSIFICADORA, VIDEO_ANTES_Y_DESPUES_TRAMPA, IMAGEN_USO_ANTIODORES_MASCOTAS, IMAGEN_USO_ELIMINADOR_TUBERIAS, PDF_COTIZACION_BOMBA, IMAGEN_INSTRUCCIONES_SHOCK_TRAMPA, IMAGEN_INSTRUCCIONES_SHOCK_REGISTRO). El adjunto se manda solo, sin texto adicional — tu explicación va después, en tu siguiente mensaje de texto normal. Si el recurso no está configurado todavía, responde not_configured — nunca inventes el archivo, nunca lo sustituyas por el de otro producto, ni digas que lo enviaste si no se pudo.',
   inputSchema: z.object({
     resourceKey: z.enum(resourceKeys),
-    caption: z.string().optional().describe('Texto breve opcional para acompañar el adjunto.'),
   }),
   outputSchema: z.object({
     sent: z.boolean(),
     reason: z.enum(['not_configured', 'send_failed']).optional(),
   }),
-  execute: async ({ resourceKey, caption }, context) => {
+  execute: async ({ resourceKey }, context) => {
     const requestContext = context?.requestContext as
       | { get: (key: keyof FrancoRequestContext) => unknown }
       | undefined;
@@ -35,7 +34,7 @@ export const sendResourceTool = createTool({
     }
 
     try {
-      await sendInboxAttachment(conversationId, resource.url, resource.type, caption);
+      await sendInboxAttachment(conversationId, resource.url, resource.type);
     } catch (error) {
       console.error('[send-resource] No se pudo enviar el adjunto vía Zernio', error);
       return { sent: false, reason: 'send_failed' as const };

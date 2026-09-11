@@ -71,22 +71,51 @@ function extractIncomingWhatsappMessage(payload: unknown): ExtractedMessage | nu
   };
 }
 
+// Llaves del working memory (ver src/mastra/memory/index.ts) — si el texto final
+// del modelo es un JSON con alguna de estas llaves, es una fuga del borrador
+// interno (el modelo falló al invocar la tool de memoria y la escribió como
+// texto visible en su lugar) y nunca debe llegar al cliente tal cual.
+const WORKING_MEMORY_TELLTALE_KEYS = [
+  'flow_state',
+  'ya_saludo',
+  'cerrado_por_lenguaje_ofensivo',
+  'recursos_ya_enviados',
+  'ubicacion_merida',
+];
+
+function looksLikeInternalState(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object') return false;
+    return WORKING_MEMORY_TELLTALE_KEYS.some((key) => key in (parsed as Record<string, unknown>));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * gpt-4.1-mini a veces escribe texto visible tanto en el paso donde llama a una
  * tool como en el paso final tras ver el resultado, y Mastra concatena ambos en
  * `response.text` — el cliente recibe el mismo mensaje repetido. En vez de
  * depender de que el modelo respete la instrucción de no hacerlo, nos quedamos
- * solo con el texto del ÚLTIMO paso no vacío (la palabra final del modelo tras
- * cualquier tool call), que es siempre la versión completa y correcta.
+ * solo con el texto del ÚLTIMO paso no vacío y que no sea una fuga del working
+ * memory. Si no queda ningún texto válido, devuelve null — el llamador debe
+ * tratarlo como una falla real (nunca mandar el JSON ni quedarse callado).
  */
-function extractFinalReplyText(response: { text: string; steps?: unknown }): string {
+function extractFinalReplyText(response: { text: string; steps?: unknown }): string | null {
   const steps = Array.isArray(response.steps) ? (response.steps as Array<{ text?: unknown }>) : [];
   const stepTexts = steps
     .map((step) => (typeof step.text === 'string' ? step.text.trim() : ''))
-    .filter((stepText) => stepText.length > 0);
+    .filter((stepText) => stepText.length > 0 && !looksLikeInternalState(stepText));
 
   if (stepTexts.length > 0) return stepTexts[stepTexts.length - 1];
-  return response.text;
+
+  const fallback = response.text?.trim();
+  if (fallback && !looksLikeInternalState(fallback)) return fallback;
+
+  return null;
 }
 
 // Deduplicación en memoria: Zernio puede reintentar el mismo evento (mismo `id`)
@@ -108,6 +137,22 @@ function alreadyProcessed(eventId: string | undefined): boolean {
   return false;
 }
 
+// Si dos mensajes del mismo número llegan casi juntos (un cliente escribiendo
+// rápido, o un reintento de red), se procesan uno tras otro, nunca en paralelo
+// — procesarlos a la vez generaría dos respuestas independientes de Franco
+// para el mismo hilo, duplicando envíos y arriesgando el límite de mensajes
+// de WhatsApp por destinatario.
+const leadProcessingQueue = new Map<string, Promise<void>>();
+
+function runSerially(key: string, task: () => Promise<void>): Promise<void> {
+  const previous = leadProcessingQueue.get(key) ?? Promise.resolve();
+  const current = previous.then(task, task);
+  current.finally(() => {
+    if (leadProcessingQueue.get(key) === current) leadProcessingQueue.delete(key);
+  });
+  return current;
+}
+
 export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra): Promise<void> {
   const event = pickFirst(payload, ['event']);
   if (event !== 'message.received') return;
@@ -126,59 +171,64 @@ export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra)
 
   const { whatsappNumber, text, conversationId, senderName } = extracted;
 
-  const lead = await ensureLead(whatsappNumber);
-  await touchLeadLastMessage(lead.id);
-  await logLeadEvent(lead.id, 'message_in', { text });
+  await runSerially(whatsappNumber, async () => {
+    const lead = await ensureLead(whatsappNumber);
+    await touchLeadLastMessage(lead.id);
+    await logLeadEvent(lead.id, 'message_in', { text });
 
-  if (lead.franco_paused) {
-    // Un humano ya está atendiendo esta conversación: se guarda el mensaje
-    // pero Franco no genera ninguna respuesta automática.
-    return;
-  }
-
-  if (!(await isFrancoGloballyEnabled())) {
-    // Interruptor general apagado desde el dashboard: se guarda el mensaje
-    // en todos los leads, pero nadie recibe respuesta automática.
-    return;
-  }
-
-  const requestContext = new RequestContext<FrancoRequestContext>();
-  requestContext.set('leadId', lead.id);
-  requestContext.set('whatsappNumber', whatsappNumber);
-  requestContext.set('conversationId', conversationId);
-
-  const promptText =
-    !lead.nombre && senderName
-      ? `[Nota interna, no visible para el cliente: su nombre de perfil de WhatsApp es "${senderName}". Si te parece un nombre real de persona, guárdalo con la tool save_lead_data (campo nombre) sin preguntar. Si parece un apodo, nombre de negocio, emoji o algo que no sea un nombre de persona, no lo uses y pregúntale su nombre con naturalidad cuando el flujo lo requiera.]\n\n${text}`
-      : text;
-
-  try {
-    const franco = mastra.getAgent('francoAgent');
-    const response = await franco.generate(promptText, {
-      memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
-      requestContext,
-    });
-
-    const replyText = extractFinalReplyText(response);
-    if (replyText) {
-      await sendInboxMessage(conversationId, replyText);
-      await logLeadEvent(lead.id, 'message_out', { text: replyText });
+    if (lead.franco_paused) {
+      // Un humano ya está atendiendo esta conversación: se guarda el mensaje
+      // pero Franco no genera ninguna respuesta automática.
+      return;
     }
-  } catch (error) {
-    // Algo falló generando o mandando la respuesta de Franco para este cliente
-    // en particular. Se pausa SOLO este lead (un humano debe reactivarlo desde
-    // el dashboard tras resolver el problema) — el resto de la operación sigue
-    // normal para todos los demás leads.
-    console.error('[webhook-zernio] Error generando o enviando la respuesta de Franco', error);
 
-    await markLeadError(lead.id, error).catch((markError) => {
-      console.error('[webhook-zernio] No se pudo marcar el lead con error', markError);
-    });
+    if (!(await isFrancoGloballyEnabled())) {
+      // Interruptor general apagado desde el dashboard: se guarda el mensaje
+      // en todos los leads, pero nadie recibe respuesta automática.
+      return;
+    }
 
-    await sendInboxMessage(conversationId, FALLBACK_ERROR_MESSAGE).catch((sendError) => {
-      console.error('[webhook-zernio] No se pudo enviar el mensaje de disculpa al cliente', sendError);
-    });
+    const requestContext = new RequestContext<FrancoRequestContext>();
+    requestContext.set('leadId', lead.id);
+    requestContext.set('whatsappNumber', whatsappNumber);
+    requestContext.set('conversationId', conversationId);
 
-    reportAgentError('webhook-zernio-generate-or-send', error, { leadId: lead.id, whatsappNumber });
-  }
+    const promptText =
+      !lead.nombre && senderName
+        ? `[Nota interna, no visible para el cliente: su nombre de perfil de WhatsApp es "${senderName}". Si te parece un nombre real de persona, guárdalo con la tool save_lead_data (campo nombre) sin preguntar. Si parece un apodo, nombre de negocio, emoji o algo que no sea un nombre de persona, no lo uses y pregúntale su nombre con naturalidad cuando el flujo lo requiera.]\n\n${text}`
+        : text;
+
+    try {
+      const franco = mastra.getAgent('francoAgent');
+      const response = await franco.generate(promptText, {
+        memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
+        requestContext,
+      });
+
+      const replyText = extractFinalReplyText(response);
+      if (replyText === null) {
+        throw new Error('El modelo no generó una respuesta de texto válida (posible fuga de estado interno).');
+      }
+      if (replyText) {
+        await sendInboxMessage(conversationId, replyText);
+        await logLeadEvent(lead.id, 'message_out', { text: replyText });
+      }
+    } catch (error) {
+      // Algo falló generando o mandando la respuesta de Franco para este cliente
+      // en particular. Se pausa SOLO este lead (un humano debe reactivarlo desde
+      // el dashboard tras resolver el problema) — el resto de la operación sigue
+      // normal para todos los demás leads.
+      console.error('[webhook-zernio] Error generando o enviando la respuesta de Franco', error);
+
+      await markLeadError(lead.id, error).catch((markError) => {
+        console.error('[webhook-zernio] No se pudo marcar el lead con error', markError);
+      });
+
+      await sendInboxMessage(conversationId, FALLBACK_ERROR_MESSAGE).catch((sendError) => {
+        console.error('[webhook-zernio] No se pudo enviar el mensaje de disculpa al cliente', sendError);
+      });
+
+      reportAgentError('webhook-zernio-generate-or-send', error, { leadId: lead.id, whatsappNumber });
+    }
+  });
 }

@@ -163,6 +163,18 @@ export async function markLeadError(leadId: string, error: unknown): Promise<voi
   await logLeadEvent(leadId, 'error', { message });
 }
 
+export async function closeConversation(leadId: string): Promise<void> {
+  const { error } = await supabase
+    .from('bluedrop_leads')
+    .update({ estado_solicitud: 'cerrada' satisfies EstadoSolicitud, franco_paused: true, updated_at: new Date().toISOString() })
+    .eq('id', leadId);
+
+  if (error) throw error;
+
+  await logLeadEvent(leadId, 'manual_update', { field: 'estado_solicitud', to: 'cerrada', reason: 'cierre_confirmado_por_cliente' });
+  await logLeadEvent(leadId, 'manual_update', { field: 'franco_paused', value: true, reason: 'cierre_confirmado_por_cliente' });
+}
+
 export async function isFrancoGloballyEnabled(): Promise<boolean> {
   const { data, error } = await supabase.from('bluedrop_app_settings').select('franco_enabled').eq('id', true).maybeSingle();
 

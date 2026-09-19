@@ -24,6 +24,7 @@ const workingMemorySchema = z.object({
   preferencia_contacto: z.string().optional(),
   recursos_ya_enviados: z.array(z.string()).optional(),
   cerrado_por_lenguaje_ofensivo: z.boolean().optional(),
+  conversacion_cerrada: z.boolean().optional(),
 });
 
 export const francoMemory = new Memory({

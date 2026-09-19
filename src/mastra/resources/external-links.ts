@@ -17,22 +17,27 @@ export const YOUTUBE_HOGAR = {
 
 export const PUNTOS_VENTA_MERIDA = {
   papeleriaElReinoDelSaber: {
+    nombre: 'Papelería El Reino del Saber',
     producto: 'Eliminador de Olores para Tuberías',
     maps: 'https://maps.app.goo.gl/6K1xpoKrqZAsxA986',
   },
   tlapaleriaAndrea: {
+    nombre: 'Tlapalería Andrea',
     producto: 'Eliminador de Olores para Tuberías',
     maps: 'https://maps.app.goo.gl/sS9bM9Z9KVVETrn66?g_st=awb',
   },
   veterinariaCannaPets: {
+    nombre: 'Veterinaria CannaPets',
     producto: 'Antiolores de Mascotas',
     maps: 'https://maps.app.goo.gl/oCGwbZQmerVYayF97?g_st=awb',
   },
   centroVeterinarioSaludAnimal: {
+    nombre: 'Centro Veterinario Salud Animal',
     producto: 'Antiolores de Mascotas',
     maps: 'https://maps.app.goo.gl/6NougTjiYdVyFQSV9?g_st=awb',
   },
   abarrotesCarmita: {
+    nombre: 'Abarrotes Carmita',
     producto: 'Antiolores de Mascotas, Eliminador de Olores para Tuberías, Blue Poop',
     maps: 'https://maps.app.goo.gl/dfa41Yx7kyZkzeNU7?g_st=awb',
   },

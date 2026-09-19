@@ -2,7 +2,13 @@ import type { Mastra } from '@mastra/core';
 import { RequestContext } from '@mastra/core/request-context';
 import { normalizeWhatsappNumber, threadIdForWhatsapp } from '../../mastra/memory/index.js';
 import { ensureLead } from '../lib/lead-lifecycle.js';
-import { logLeadEvent, touchLeadLastMessage, isFrancoGloballyEnabled, markLeadError } from '../lib/supabase-client.js';
+import {
+  logLeadEvent,
+  touchLeadLastMessage,
+  isFrancoGloballyEnabled,
+  markLeadError,
+  closeConversation,
+} from '../lib/supabase-client.js';
 import { sendInboxMessage } from '../lib/zernio-client.js';
 import { reportAgentError } from '../lib/dev-alerts.js';
 import type { FrancoRequestContext } from '../../mastra/request-context.js';
@@ -95,6 +101,35 @@ function looksLikeInternalState(text: string): boolean {
   }
 }
 
+// Detecta el patrón típico de dos oraciones "pegadas" sin espacio ni salto de
+// línea entre ellas (ej. "...día!Fue un gusto..." o "...registrarlo?😊¿Me..."),
+// que gpt-4.1-mini a veces produce dentro de un mismo paso (no es el mismo bug
+// de duplicación entre pasos — extractFinalReplyText no lo detecta porque es
+// una sola cadena). Divide el texto en esos puntos de unión, quita fragmentos
+// que se repiten exactamente (sin distinguir mayúsculas/espacios), y vuelve a
+// unir con un espacio normal. Solo actúa cuando hay signo de cierre/emoji
+// pegado directo a una mayúscula/¡/¿ — texto ya bien formado (con espacio o
+// salto de línea) no se toca.
+function collapseGluedDuplicateText(text: string): string {
+  const GLUE_PATTERN = /(?<=[.!?\p{Emoji_Presentation}\p{Extended_Pictographic}])(?=[A-ZÁÉÍÓÚÑ¡¿])/gu;
+  const segments = text
+    .split(GLUE_PATTERN)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  if (segments.length <= 1) return text;
+
+  const seen = new Set<string>();
+  const deduped = segments.filter((segment) => {
+    const key = segment.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return deduped.join(' ');
+}
+
 /**
  * gpt-4.1-mini a veces escribe texto visible tanto en el paso donde llama a una
  * tool como en el paso final tras ver el resultado, y Mastra concatena ambos en
@@ -110,12 +145,47 @@ function extractFinalReplyText(response: { text: string; steps?: unknown }): str
     .map((step) => (typeof step.text === 'string' ? step.text.trim() : ''))
     .filter((stepText) => stepText.length > 0 && !looksLikeInternalState(stepText));
 
-  if (stepTexts.length > 0) return stepTexts[stepTexts.length - 1];
+  if (stepTexts.length > 0) return collapseGluedDuplicateText(stepTexts[stepTexts.length - 1]);
 
   const fallback = response.text?.trim();
-  if (fallback && !looksLikeInternalState(fallback)) return fallback;
+  if (fallback && !looksLikeInternalState(fallback)) return collapseGluedDuplicateText(fallback);
 
   return null;
+}
+
+// gpt-4.1-mini no siempre llama a `close_conversation` aunque el mensaje que
+// manda sea claramente una despedida de cierre (confirmado en pruebas: mismo
+// prompt, misma conversación, un intento sí llama la tool y otro no). Como
+// respaldo, revisamos los pasos de la respuesta por evidencia de que el
+// modelo SÍ decidió cerrar — ya sea que la tool se haya llamado, o que haya
+// guardado `conversacion_cerrada: true` vía `updateWorkingMemory` (esta tool
+// interna acepta tanto `{memory: {...}}` como los campos sueltos, y ambas
+// formas se han visto en pruebas reales) — y forzamos el cierre en código,
+// sin depender de que la tool se haya ejecutado.
+function shouldForceCloseConversation(response: { steps?: unknown }): boolean {
+  const steps = Array.isArray(response.steps)
+    ? (response.steps as Array<{ toolCalls?: unknown }>)
+    : [];
+
+  for (const step of steps) {
+    const toolCalls = Array.isArray(step.toolCalls)
+      ? (step.toolCalls as Array<{ payload?: { toolName?: string; args?: unknown } }>)
+      : [];
+
+    for (const call of toolCalls) {
+      const toolName = call.payload?.toolName;
+      if (toolName === 'closeConversationTool' || toolName === 'close-conversation') return true;
+
+      if (toolName === 'updateWorkingMemory') {
+        const args = call.payload?.args as
+          | { memory?: { conversacion_cerrada?: boolean }; conversacion_cerrada?: boolean }
+          | undefined;
+        if (args?.memory?.conversacion_cerrada === true || args?.conversacion_cerrada === true) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // Deduplicación en memoria: Zernio puede reintentar el mismo evento (mismo `id`)
@@ -204,6 +274,12 @@ export async function handleZernioWebhookEvent(payload: unknown, mastra: Mastra)
         memory: { resource: whatsappNumber, thread: threadIdForWhatsapp(whatsappNumber) },
         requestContext,
       });
+
+      if (shouldForceCloseConversation(response)) {
+        await closeConversation(lead.id).catch((closeError) => {
+          console.error('[webhook-zernio] No se pudo forzar el cierre de la conversación', closeError);
+        });
+      }
 
       const replyText = extractFinalReplyText(response);
       if (replyText === null) {

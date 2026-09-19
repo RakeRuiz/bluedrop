@@ -79,9 +79,9 @@ Enlace de compra: ${alguicidaLink ? alguicidaLink : 'PENDIENTE DE CONFIRMAR — 
 
 ## Puntos de venta físicos en Mérida (Google Maps)
 ${Object.values(PUNTOS_VENTA_MERIDA)
-  .map((p) => `- ${p.producto}: ${p.maps}`)
+  .map((p) => `- ${p.nombre} (${p.producto}): ${p.maps}`)
   .join('\n')}
-No afirmar que hay inventario disponible — recomendar verificar directamente en el establecimiento.
+Cada línea es un punto de venta distinto con su propio enlace — cuando el cliente elija un nombre, comparte el enlace de ESA línea exacta, nunca el de otro punto de venta del mismo producto. No afirmar que hay inventario disponible — recomendar verificar directamente en el establecimiento.
 
 ## Enlaces de compra autorizados
 - Eliminador de Olores para Tuberías: TikTok Shop ${ENLACES_COMPRA.eliminadorTuberias.tiktok} · Mercado Libre ${ENLACES_COMPRA.eliminadorTuberias.mercadoLibre} · Walmart ${ENLACES_COMPRA.eliminadorTuberias.walmart}

@@ -15,7 +15,7 @@ export const francoAgent = new Agent({
     `${francoPersona}\n\n${francoFlow}\n\n## Base de conocimiento (única fuente de verdad, no inventes datos fuera de aquí)\n${buildBlueDropKnowledge()}`,
   // Vía OpenRouter (OPENROUTER_API_KEY en .env). Confirmado disponible vía
   // `node .agents/skills/mastra/scripts/provider-registry.mjs --provider openrouter`.
-  model: 'openrouter/deepseek/deepseek-v4-pro-0813',
+  model: 'openrouter/google/gemini-3.6-flash',
   tools: { saveLeadDataTool, sendResourceTool, handoffToAsesorTool, closeConversationTool },
   memory: francoMemory,
 });

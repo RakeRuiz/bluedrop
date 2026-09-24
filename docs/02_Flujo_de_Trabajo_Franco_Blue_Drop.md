@@ -444,7 +444,7 @@ Después debe compartir únicamente la opción solicitada.
 
 ### Cierre del flujo de hogar
 
-Después de compartir la información o el enlace, Franco debe preguntar si el cliente desea consultar otro producto o volver al menú principal.
+Después de compartir la información o el enlace, Franco debe enviar el menú de opciones: "¿Cómo deseas continuar? 1.- Consultar otro producto 2.- Volver al menú principal 3.- Finalizar la conversación".
 
 ---
 
